@@ -1,0 +1,16 @@
+Description: Avoid privacy breach reading the documentation
+Author: Jonas Smedegaard <dr@jones.dk>
+Last-Update: 2019-01-19
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/index.html
++++ b/index.html
+@@ -3153,7 +3153,7 @@
+ 
+       <p>
+         <a href="http://documentcloud.org/" title="A DocumentCloud Project" style="background:none;">
+-          <img src="http://jashkenas.s3.amazonaws.com/images/a_documentcloud_project.png" alt="A DocumentCloud Project" />
++          A DocumentCloud Project
+         </a>
+       </p>
+ 

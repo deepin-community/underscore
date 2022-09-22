@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+# build minified browser library
+# * include source-map
+# * include pre-compressed gzip and brotli files
+%.min.js: %.js
+	uglifyjs --compress --mangle \
+		--source-map "base='$(CURDIR)',url='$*.min.js.map'" \
+		--output $@ \
+		-- $<
+ifeq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
+	pigz --force --keep -11 -- $@ $*.min.js.map
+	brotli --force --keep --best -- $@ $*.min.js.map
+endif
+
+override_dh_auto_build: underscore.min.js
+
+# install core documentation with all binary packages
+override_dh_installdocs:
+	dh_installdocs -- README.md index.html
