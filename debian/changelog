@@ -1,3 +1,75 @@
+underscore (1.13.4~dfsg+~1.11.4-3) unstable; urgency=medium
+
+  * Team upload
+  * Update lintian override info format in d/source/lintian-overrides
+    on line 2-3, 5-7
+  * Update standards version to 4.6.2, no changes needed
+  * Update rollup-3 patch (Closes: #1026692)
+
+ -- Yadd <yadd@debian.org>  Mon, 02 Jan 2023 08:09:24 +0400
+
+underscore (1.13.4~dfsg+~1.11.4-2) unstable; urgency=medium
+
+  * Team upload
+  * Add fix for rollup 3 (Closes: #1022668)
+
+ -- Yadd <yadd@debian.org>  Wed, 02 Nov 2022 12:26:31 +0100
+
+underscore (1.13.4~dfsg+~1.11.4-1) unstable; urgency=medium
+
+  * Team upload
+
+  [ Jonas Smedegaard ]
+  * remove myself as uploader
+
+  [ Yadd ]
+  * Declare compliance with policy 4.6.1
+  * New upstream version 1.13.4~dfsg+~1.11.4
+  * Refresh patches
+
+ -- Yadd <yadd@debian.org>  Fri, 02 Sep 2022 12:38:58 +0200
+
+underscore (1.13.3~dfsg+~1.11.4-1) unstable; urgency=medium
+
+  * Team upload
+  * Embed typescript declarations and repack
+
+ -- Yadd <yadd@debian.org>  Tue, 26 Apr 2022 07:17:18 +0200
+
+underscore (1.13.2~dfsg-2) unstable; urgency=medium
+
+  * Team upload
+
+  [ lintian-brush ]
+  * Set upstream metadata fields: Security-Contact.
+
+  [ Yadd ]
+  * Back to unstable
+
+ -- Yadd <yadd@debian.org>  Thu, 27 Jan 2022 12:05:33 +0100
+
+underscore (1.13.2~dfsg-1) experimental; urgency=medium
+
+  * Team upload
+
+  [ Debian Janitor ]
+  * Remove constraints unnecessary since buster:
+    + Build-Depends: Drop versioned constraint on uglifyjs.
+
+  [ Yadd ]
+  * Update standards version to 4.6.0, no changes needed.
+  * Change section to javascript
+  * Drop dependency to nodejs
+  * Use dh-sequence-nodejs auto install
+  * Update excluded-files list
+  * New upstream version 1.13.2~dfsg
+  * Build with rollup
+  * Drop security patch now included in upstream
+  * Drop the link between node-underscore and libjs-underscore
+  * Update lintian overrides
+
+ -- Yadd <yadd@debian.org>  Wed, 19 Jan 2022 06:33:35 +0100
+
 underscore (1.9.1~dfsg-4) unstable; urgency=medium
 
   [ Debian Janitor ]

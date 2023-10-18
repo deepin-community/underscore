@@ -578,17 +578,17 @@
   });
 
   QUnit.test('max', function(assert) {
-    assert.strictEqual(-Infinity, _.max(null), 'can handle null/undefined');
-    assert.strictEqual(-Infinity, _.max(void 0), 'can handle null/undefined');
-    assert.strictEqual(-Infinity, _.max(null, _.identity), 'can handle null/undefined');
+    assert.strictEqual(_.max(null), -Infinity, 'can handle null/undefined');
+    assert.strictEqual(_.max(void 0), -Infinity, 'can handle null/undefined');
+    assert.strictEqual(_.max(null, _.identity), -Infinity, 'can handle null/undefined');
 
     assert.strictEqual(_.max([1, 2, 3]), 3, 'can perform a regular Math.max');
 
     var neg = _.max([1, 2, 3], function(num){ return -num; });
     assert.strictEqual(neg, 1, 'can perform a computation-based max');
 
-    assert.strictEqual(-Infinity, _.max({}), 'Maximum value of an empty object');
-    assert.strictEqual(-Infinity, _.max([]), 'Maximum value of an empty array');
+    assert.strictEqual(_.max({}), -Infinity, 'Maximum value of an empty object');
+    assert.strictEqual(_.max([]), -Infinity, 'Maximum value of an empty array');
     assert.strictEqual(_.max({a: 'a'}), -Infinity, 'Maximum value of a non-numeric collection');
 
     assert.strictEqual(_.max(_.range(1, 300000)), 299999, 'Maximum value of a too-big array');
@@ -843,6 +843,28 @@
     var partialSample = _.sample(_.range(1000), 10);
     var partialSampleSorted = partialSample.sort();
     assert.notDeepEqual(partialSampleSorted, _.range(10), 'samples from the whole array, not just the beginning');
+    // The next few lines (up to END) are a regression test for #2927.
+    var alphabet = 'abcdefghijklmnopqrstuvwxyz';
+    var prefixLength = 5;
+    var prefix = _.toArray(alphabet.slice(0, prefixLength));
+    // We're going to take three random samples from the alphabet and count how
+    // many of them are exact prefixes of the alphabet ('abcde').
+    var verbatimPrefixes = 0;
+    _.times(3, function() {
+      var sample = _.toArray(_.sample(alphabet, prefixLength));
+      if (_.isEqual(sample, prefix)) ++verbatimPrefixes;
+    });
+    // The probability of a sample of length N being a prefix is 1/(A!/(A-N)!),
+    // with A being the length of the alphabet. That amounts to roughly 1 in
+    // 7.9e6 when N=5 and A=26. Most of the time, therefore, we should find that
+    // verbatimPrefixes=0. We will however accept the occasional hit. Only when
+    // it happens twice, does it start to look really suspicious; the
+    // probability of this happening is roughly 1 in 21e12. If you are lucky
+    // enough to witness this, you should be fine when you run the test again.
+    // However, if you can reliably make the test fail again, you can be sure
+    // that the code is not working as intended.
+    assert.ok(verbatimPrefixes < 2, 'sampling a string should not just return a prefix');
+    // END of regression test for #2927.
   });
 
   QUnit.test('toArray', function(assert) {
