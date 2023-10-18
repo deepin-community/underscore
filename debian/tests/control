@@ -1,7 +1,3 @@
-Test-Command: node -e "require('underscore');"
-Depends: @
-Restrictions: superficial
-
 Tests: CVE-2021-23358
 Depends: @
 Restrictions: superficial

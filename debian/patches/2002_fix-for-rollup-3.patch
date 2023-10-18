@@ -1,0 +1,84 @@
+Description: fix for rollup 3
+Author: Yadd <yadd@debian.org>
+Bug-Debian: https://bugs.debian.org/1022668
+ https://bugs.debian.org/1026692
+Forwarded: no
+Last-Update: 2023-01-02
+
+--- a/rollup.common.js
++++ b/rollup.common.js
+@@ -1,5 +1,5 @@
+-import { readFileSync } from 'fs';
+-import { extend } from './underscore-esm.js';
++const { readFileSync } = require('fs');
++const { extend } = require('./underscore-esm.cjs');
+ 
+ var intro = readFileSync('modules/index.js', 'utf-8').split('\n').slice(3, 7).join('\n');
+ 
+@@ -14,14 +14,18 @@
+   sourcemapExcludeSources: true,
+ };
+ 
+-export function outputConf(particular) {
++function outputConf(particular) {
+   return extend(particular, outputBase);
+ }
+ 
+-export function sourcemapConf(particular) {
++function sourcemapConf(particular) {
+   return extend(particular, outputBase, sourcemapBase);
+ }
+ 
+-export function monolithConf(particular) {
++function monolithConf(particular) {
+   return extend(particular, outputBase, sourcemapBase, {intro});
+ }
++
++exports.monolithConf = monolithConf;
++exports.outputConf = outputConf;
++exports.sourcemapConf = sourcemapConf;
+--- a/rollup.config.js
++++ b/rollup.config.js
+@@ -1,8 +1,8 @@
+-import glob from 'glob';
+-import { filter } from './underscore-esm.js';
+-import { outputConf, sourcemapConf, monolithConf } from './rollup.common.js';
++const glob = require('glob');
++const { filter } = require('./underscore-esm.cjs');
++const { outputConf, sourcemapConf, monolithConf } = require('./rollup.common.js');
+ 
+-export default [
++module.exports = [
+   // Monolithic ESM bundle for browsers and deno.
+   {
+     input: 'modules/index-all.js',
+@@ -51,11 +51,13 @@
+     preserveModules: true,
+     output: [
+       outputConf({
++        entryFileNames: 'index.js',
+         dir: 'amd',
+         exports: 'auto',
+         format: 'amd',
+       }),
+       outputConf({
++        entryFileNames: 'index.js',
+         dir: 'cjs',
+         exports: 'auto',
+         format: 'cjs',
+--- a/rollup.config2.js
++++ b/rollup.config2.js
+@@ -1,10 +1,10 @@
+-import { resolve } from 'path';
+-import { monolithConf } from './rollup.common.js';
++const { resolve } = require('path');
++const { monolithConf } = require('./rollup.common.js');
+ 
+ var sharedInput = './underscore-node-f-pre.js';
+ var sharedOutput = './underscore-node-f.cjs';
+ 
+-export default [
++module.exports = [
+   // ESM entry point for Node.js 12+.
+   {
+     input: 'underscore-node-mjs-pre.js',

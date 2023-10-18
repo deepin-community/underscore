@@ -178,6 +178,8 @@
     assert.deepEqual(result, {b: 2, c: 3}, 'can restrict properties to those named in an array');
     result = _.pick({a: 1, b: 2, c: 3}, ['a'], 'b');
     assert.deepEqual(result, {a: 1, b: 2}, 'can restrict properties to those named in mixed args');
+    result = _.pick({a: 1, b: 2, c: 3}, ['a'], [['b']]);
+    assert.deepEqual(result, {a: 1, b: 2}, 'can restrict properties to those named in mixed deep args');
     result = _.pick(['a', 'b'], 1);
     assert.deepEqual(result, {1: 'b'}, 'can pick numeric properties');
 
@@ -219,6 +221,8 @@
     assert.deepEqual(result, {b: 2}, 'can omit several named properties');
     result = _.omit({a: 1, b: 2, c: 3}, ['b', 'c']);
     assert.deepEqual(result, {a: 1}, 'can omit properties named in an array');
+    result = _.omit({a: 1, b: 2, c: 3}, ['b', ['c']]);
+    assert.deepEqual(result, {a: 1}, 'can omit properties named in a nested array');
     result = _.omit(['a', 'b'], 0);
     assert.deepEqual(result, {1: 'b'}, 'can omit numeric properties');
 
@@ -578,6 +582,41 @@
       var sameStringSymbol = Symbol('x');
       assert.strictEqual(_.isEqual(symbol, sameStringSymbol), false, 'Different symbols of same string are not equal');
     }
+
+    // typed arrays
+    if (typeof ArrayBuffer !== 'undefined') {
+      var u8 = new Uint8Array([1, 2]);
+      var u8b = new Uint8Array([1, 2]);
+      var i8 = new Int8Array([1, 2]);
+      var u16 = new Uint16Array([1, 2]);
+      var u16one = new Uint16Array([3]);
+
+      assert.ok(_.isEqual(u8, u8b), 'Identical typed array data are equal');
+      assert.ok(_.isEqual(u8.buffer, u8b.buffer), 'Identical ArrayBuffers are equal');
+      assert.ok(_.isEqual(u8.buffer, i8.buffer), 'Identical ArrayBuffers of different typed arrays are equal');
+
+      assert.notOk(_.isEqual({a: 1, buffer: u8.buffer}, {a: 2, buffer: u8b.buffer}), 'Unequal objects with similar buffer properties are not equals');
+
+      assert.notOk(_.isEqual(u8, i8), 'Different types of typed arrays with the same byte data are not equal');
+      assert.notOk(_.isEqual(u8, u16), 'Typed arrays with different types and different byte length are not equal');
+      assert.notOk(_.isEqual(u8, u16one), 'Typed arrays with different types, same byte length but different byte data are not equal');
+      assert.notOk(_.isEqual(u8.buffer, u16.buffer), 'Different ArrayBuffers with different length are not equal');
+      assert.notOk(_.isEqual(u8.buffer, u16one.buffer), 'Different ArrayBuffers with different byte data are not equal');
+
+      // Regression tests for #2875.
+      var shared = new Uint8Array([1, 2, 3, 4]);
+      var view1 = new Uint8Array(shared.buffer, 0, 2);
+      var view2 = new Uint8Array(shared.buffer, 2, 2);
+      assert.notOk(_.isEqual(view1, view2), 'same buffer with different offset is not equal');
+
+      // Some older browsers support typed arrays but not DataView.
+      if (typeof DataView !== 'undefined') {
+        assert.ok(_.isEqual(new DataView(u8.buffer), new DataView(u8b.buffer)), 'Identical DataViews are equal');
+        assert.ok(_.isEqual(new DataView(u8.buffer), new DataView(i8.buffer)), 'Identical DataViews of different typed arrays are equal');
+        assert.notOk(_.isEqual(new DataView(u8.buffer), new DataView(u16.buffer)), 'Different DataViews with different length are not equal');
+        assert.notOk(_.isEqual(new DataView(u8.buffer), new DataView(u16one.buffer)), 'Different DataViews with different byte data are not equal');
+      }
+    }
   });
 
   QUnit.test('isEmpty', function(assert) {
@@ -705,7 +744,7 @@
     if (typeof Map === 'function') {
       var keyString = 'a string';
       var obj = new Map();
-      obj.set(keyString, 'value');
+      obj.set(keyString, "value associated with 'a string'");
       assert.ok(_.isMap(obj), 'but a map is');
     }
   });
@@ -750,8 +789,7 @@
       assert.ok(!_.isSet(new WeakSet()), 'a weakset is not a set');
     }
     if (typeof Set === 'function') {
-      var obj = new Set();
-      obj.add(1).add('string').add(false).add({});
+      var obj = new Set([1, 2, 3, 4, 5]);
       assert.ok(_.isSet(obj), 'but a set is');
     }
   });
@@ -800,7 +838,7 @@
   if (typeof Int8Array !== 'undefined') {
     QUnit.test('#1929 Typed Array constructors are functions', function(assert) {
       _.chain(['Float32Array', 'Float64Array', 'Int8Array', 'Int16Array', 'Int32Array', 'Uint8Array', 'Uint8ClampedArray', 'Uint16Array', 'Uint32Array'])
-      .map(_.propertyOf(typeof GLOBAL != 'undefined' ? GLOBAL : window))
+      .map(_.propertyOf(typeof global != 'undefined' ? global : window))
       .compact()
       .each(function(TypedArray) {
         // PhantomJS reports `typeof UInt8Array == 'object'` and doesn't report toString TypeArray
@@ -882,6 +920,49 @@
     assert.ok(_.isError(new URIError()), 'URIErrors are Errors');
   });
 
+  if (typeof ArrayBuffer != 'undefined') {
+    QUnit.test('isArrayBuffer, isDataView and isTypedArray', function(assert) {
+      var buffer = new ArrayBuffer(16);
+      var checkValues = {
+        'null': null,
+        'a string': '',
+        'an array': [],
+        'an ArrayBuffer': buffer,
+        'a TypedArray': new Uint8Array(buffer)
+      };
+      // Some older browsers support typed arrays but not DataView.
+      if (typeof DataView !== 'undefined') {
+        checkValues['a DataView'] = new DataView(buffer);
+      }
+      var types = ['an ArrayBuffer', 'a DataView', 'a TypedArray'];
+      _.each(types, function(type) {
+        var typeCheck = _['is' + type.split(' ')[1]];
+        _.each(checkValues, function(value, description) {
+          if (description === type) {
+            assert.ok(typeCheck(value), description + ' is ' + type);
+          } else {
+            assert.ok(!typeCheck(value), description + ' is not ' + type);
+          }
+        });
+      });
+    });
+
+    QUnit.test('isTypedArray', function(assert) {
+      var buffer = new ArrayBuffer(16);
+      var typedArrayTypes = [Int8Array, Uint16Array, Int16Array, Uint32Array, Int32Array, Float32Array, Float64Array];
+      if (typeof Uint8ClampedArray != 'undefined') {
+        typedArrayTypes.push(Uint8ClampedArray);
+      }
+      if (typeof BigInt64Array != 'undefined') {
+        typedArrayTypes.push(BigInt64Array);
+      }
+      _.each(typedArrayTypes, function(ctor) {
+        assert.ok(_.isTypedArray(new ctor(buffer)), ctor.name + ' is a typed array');
+      });
+
+    });
+  }
+
   QUnit.test('tap', function(assert) {
     var intercepted = null;
     var interceptor = function(obj) { intercepted = obj; };
@@ -914,6 +995,28 @@
 
     assert.ok(_.has({a: {b: 'foo'}}, ['a', 'b']), 'can check for nested properties.');
     assert.ok(!_.has({a: child}, ['a', 'foo']), 'does not check the prototype of nested props.');
+  });
+
+  QUnit.test('get', function(assert) {
+    var stooge = {name: 'moe'};
+    assert.strictEqual(_.get(stooge, 'name'), 'moe', 'should return the property with the given name');
+    assert.strictEqual(_.get(null, 'name'), void 0, 'should return undefined for null values');
+    assert.strictEqual(_.get(void 0, 'name'), void 0, 'should return undefined for undefined values');
+    assert.strictEqual(_.get('foo', null), void 0, 'should return undefined for null object');
+    assert.strictEqual(_.get({x: null}, 'x'), null, 'can fetch null values');
+    assert.strictEqual(_.get(null, 'length'), void 0, 'does not crash on property access of non-objects');
+    assert.strictEqual(_.get(stooge, 'size', 10), 10, 'allows a fallback value for undefined properties');
+    assert.strictEqual(_.get(stooge, 'name', 10), 'moe', 'ignores the fallback value if the property is defined');
+
+    // Deep property access
+    assert.strictEqual(_.get({a: 1}, 'a'), 1, 'can get a direct property');
+    assert.strictEqual(_.get({a: {b: 2}}, ['a', 'b']), 2, 'can get a nested property');
+    assert.strictEqual(_.get({a: {b: 2}}, ['a', 'c'], 10), 10, 'allows a fallback value for undefined properties');
+    assert.strictEqual(_.get({a: {b: 2}}, ['a', 'b'], 10), 2, 'ignores the fallback value if the property is defined');
+    assert.strictEqual(_.get({a: false}, ['a']), false, 'can fetch falsy values');
+    assert.strictEqual(_.get({x: {y: null}}, ['x', 'y']), null, 'can fetch null values deeply');
+    assert.strictEqual(_.get({x: null}, ['x', 'y']), void 0, 'does not crash on property access of nested non-objects');
+    assert.strictEqual(_.get({x: 'y'}, []), void 0, 'returns `undefined` for a path that is an empty array');
   });
 
   QUnit.test('property', function(assert) {

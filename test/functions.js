@@ -99,7 +99,8 @@
       sayHi: function() { return 'hi: ' + this.name; }
     };
     curly.getName = moe.getName;
-    _.bindAll(moe, 'getName', 'sayHi');
+    var bound = _.bindAll(moe, 'getName', 'sayHi');
+    assert.strictEqual(bound, moe, 'returns the bound object');
     curly.sayHi = moe.sayHi;
     assert.strictEqual(curly.getName(), 'name: curly', 'unbound function is bound to current object');
     assert.strictEqual(curly.sayHi(), 'hi: moe', 'bound function is still bound to original object');
@@ -123,9 +124,11 @@
     var sayLast = moe.sayLast;
     assert.strictEqual(sayLast(1, 2, 3, 4, 5, 6, 7, 'Tom'), 'hi: moe', 'createCallback works with any number of arguments');
 
-    _.bindAll(moe, ['getName']);
+    _.bindAll(moe, ['getName'], [['sayHi']]);
     var getName = moe.getName;
+    var sayHi = moe.sayHi;
     assert.strictEqual(getName(), 'name: moe', 'flattens arguments into a single list');
+    assert.strictEqual(sayHi(), 'hi: moe', 'deeply flattens arguments into a single list');
   });
 
   QUnit.test('memoize', function(assert) {
@@ -215,7 +218,7 @@
     throttledUpdate(1); throttledUpdate(2);
     _.delay(function(){ throttledUpdate(3); }, 64);
     assert.strictEqual(value, 1, 'updated to latest value');
-    _.delay(function(){ assert.strictEqual(value, 3, 'updated to latest value'); done(); }, 96);
+    _.delay(function(){ assert.strictEqual(value, 3, 'updated to latest value'); done(); }, 104);
   });
 
   QUnit.test('throttle once', function(assert) {
@@ -238,6 +241,16 @@
     var incr = function(){ counter++; };
     var throttledIncr = _.throttle(incr, 32);
     throttledIncr(); throttledIncr();
+    _.delay(function(){ assert.strictEqual(counter, 2, 'incr was called twice'); done(); }, 64);
+  });
+
+  QUnit.test('throttle three times', function(assert) {
+    assert.expect(1);
+    var done = assert.async();
+    var counter = 0;
+    var incr = function(){ counter++; };
+    var throttledIncr = _.throttle(incr, 32);
+    throttledIncr(); throttledIncr(); throttledIncr();
     _.delay(function(){ assert.strictEqual(counter, 2, 'incr was called twice'); done(); }, 64);
   });
 
@@ -278,7 +291,7 @@
       assert.strictEqual(results[4], 2, 'incr was throttled');
       assert.strictEqual(results[5], 3, 'incr was called trailing');
       done();
-    }, 300);
+    }, 304);
   });
 
   QUnit.test('throttle triggers trailing call when invoked repeatedly', function(assert) {
@@ -387,20 +400,64 @@
     var counter = 0;
     var incr = function(){ counter++; };
     var throttledIncr = _.throttle(incr, 100);
-    var origNowFunc = _.now;
+    var originalNowFunc = Date.now;
+    var originalGetTimeFunc = Date.prototype.getTime;
 
     throttledIncr();
-    assert.strictEqual(counter, 1);
-    _.now = function() {
-      return new Date(2013, 0, 1, 1, 1, 1);
-    };
+    assert.strictEqual(counter, 1, 'incr was called immediately');
+
+    Date.prototype.getTime = function() {
+      return +(new Date(2013, 0, 1, 1, 1, 1));
+    }
+    Date.now = function() {
+      return +(new Date(2013, 0, 1, 1, 1, 1));
+    }
 
     _.delay(function() {
       throttledIncr();
-      assert.strictEqual(counter, 2);
+      assert.strictEqual(counter, 2, 'incr was throttled successfully, with tampered system time');
       done();
-      _.now = origNowFunc;
+      Date.now = originalNowFunc;
+      Date.prototype.getTime = originalGetTimeFunc;
     }, 200);
+  });
+
+  QUnit.test('throttle continues to function after system time is not accessible (or in invalid format)', function(assert) {
+    assert.expect(3);
+    var done = assert.async();
+    var counter = 0;
+    var incr = function(){ counter++; };
+    var throttledIncr = _.throttle(incr, 100);
+    var originalNowFunc = Date.now;
+    var originalGetTimeFunc = Date.prototype.getTime;
+    var originalValueOfFunc = Date.prototype.valueOf;
+
+    throttledIncr();
+    assert.strictEqual(counter, 1, 'incr was called immediately');
+
+    Date.prototype.valueOf = function() {
+      return null;
+    }
+    Date.prototype.getTime = function() {
+      return null;
+    }
+    Date.now = function() {
+      return null;
+    }
+
+    _.delay(function() {
+      throttledIncr();
+      assert.strictEqual(counter, 2, 'incr was throttled successfully, with tampered system time');
+      Date.now = originalNowFunc;
+      Date.prototype.getTime = originalGetTimeFunc;
+      Date.prototype.valueOf = originalValueOfFunc;
+    }, 200);
+
+    _.delay(function() {
+      throttledIncr();
+      assert.strictEqual(counter, 3, 'incr was throttled successfully, after system time method restoration');
+      done();
+    }, 400);
   });
 
   QUnit.test('throttle re-entrant', function(assert) {
@@ -425,7 +482,7 @@
     _.delay(function(){
       assert.strictEqual(value, 'a1a2c1c2b1b2', 'append was throttled successfully');
       done();
-    }, 100);
+    }, 104);
   });
 
   QUnit.test('throttle cancel', function(assert) {
@@ -490,14 +547,17 @@
     assert.strictEqual(counter, 1, 'incr was called immediately');
     _.delay(debouncedIncr, 16);
     _.delay(debouncedIncr, 32);
-    _.delay(debouncedIncr, 48);
-    _.delay(function(){
+    _.delay(function() {
+      debouncedIncr();
+      _.delay(finish, 80);
+    }, 48);
+    var finish = function(){
       assert.strictEqual(counter, 1, 'incr was debounced');
       c = debouncedIncr();
       assert.strictEqual(c, 2);
       assert.strictEqual(counter, 2, 'incr was called again');
       done();
-    }, 128);
+    };
   });
 
   QUnit.test('debounce asap cancel', function(assert) {
@@ -536,24 +596,68 @@
     assert.expect(2);
     var done = assert.async();
     var counter = 0;
-    var origNowFunc = _.now;
     var debouncedIncr = _.debounce(function(){
       counter++;
     }, 100, true);
+    var originalNowFunc = Date.now;
+    var originalGetTimeFunc = Date.prototype.getTime;
 
     debouncedIncr();
     assert.strictEqual(counter, 1, 'incr was called immediately');
 
-    _.now = function() {
-      return new Date(2013, 0, 1, 1, 1, 1);
+    Date.prototype.getTime = function() {
+      return +(new Date(2013, 0, 1, 1, 1, 1));
+    }
+    Date.now = function() {
+      return +(new Date(2013, 0, 1, 1, 1, 1));
+    }
+
+    _.delay(function() {
+      debouncedIncr();
+      assert.strictEqual(counter, 2, 'incr was debounced successfully, with tampered system time');
+      done();
+      Date.now = originalNowFunc;
+      Date.prototype.getTime = originalGetTimeFunc;
+    }, 200);
+  });
+
+  QUnit.test('debounce after system time is is not accessible (or in invalid format)', function(assert) {
+    assert.expect(3);
+    var done = assert.async();
+    var counter = 0;
+    var debouncedIncr = _.debounce(function(){
+      counter++;
+    }, 100, true);
+    var originalNowFunc = Date.now;
+    var originalGetTimeFunc = Date.prototype.getTime;
+    var originalValueOfFunc = Date.prototype.valueOf;
+
+    debouncedIncr();
+    assert.strictEqual(counter, 1, 'incr was called immediately');
+
+    Date.prototype.valueOf = function() {
+      return null;
+    };
+    Date.prototype.getTime = function() {
+      return null;
+    };
+    Date.now = function() {
+      return null;
     };
 
     _.delay(function() {
       debouncedIncr();
-      assert.strictEqual(counter, 2, 'incr was debounced successfully');
-      done();
-      _.now = origNowFunc;
+      assert.strictEqual(counter, 2, 'incr was debounced successfully, with tampered system time');
+      Date.now = originalNowFunc;
+      Date.prototype.getTime = originalGetTimeFunc;
+      Date.prototype.valueOf = originalValueOfFunc;
     }, 200);
+
+    _.delay(function() {
+      debouncedIncr();
+      assert.strictEqual(counter, 3, 'incr was debounced successfully, after system time method restoration');
+      done();
+    }, 400);
   });
 
   QUnit.test('debounce re-entrant', function(assert) {
@@ -701,12 +805,12 @@
 
     // Test custom iteratee
     var builtinIteratee = _.iteratee;
-    _.iteratee = function(value) {
+    _.iteratee = function(value, context) {
       // RegEx values return a function that returns the number of matches
       if (_.isRegExp(value)) return function(obj) {
         return (obj.match(value) || []).length;
       };
-      return value;
+      return builtinIteratee(value, context);
     };
 
     var collection = ['foo', 'bar', 'bbiz'];
@@ -733,6 +837,17 @@
 
     var objCollection = {a: 'foo', b: 'bar', c: 'bbiz'};
     assert.deepEqual(_.mapObject(objCollection, /b/g), {a: 0, b: 1, c: 2});
+
+    // Ensure that the overridden iteratee can still fall back on the builtin
+    // iteratee.
+    assert.strictEqual(_.iteratee(), _.identity);
+    assert.deepEqual(_.toArray(_.iteratee(fn)(1, 2, 3)), _.range(1, 4));
+    var matcher = _.iteratee({b: 'bar'});
+    assert.equal(matcher(objCollection), true);
+    assert.equal(matcher({}), false);
+    var property = _.iteratee('b');
+    assert.equal(property(objCollection), 'bar');
+    assert.equal(property({}), undefined);
 
     // Restore the builtin iteratee
     _.iteratee = builtinIteratee;
